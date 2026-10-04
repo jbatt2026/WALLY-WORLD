@@ -47,8 +47,9 @@ async def test_unknown_peer_raises(tmp_path):
 
 def test_route_authorization(tmp_path):
     hub, _ = make_hub(tmp_path)
-    allowed = {"matthew"}
-    assert route(hub, allowed, "res_bot", "x") == "peer_reply"
-    assert route(hub, allowed, "Matthew", "x") == "direct"
-    assert route(hub, allowed, "stranger", "x") == "ignore"
-    assert route(hub, allowed, None, "x") == "ignore"
+    allowed = {42}
+    assert route(hub, allowed, 7, "res_bot") == "peer_reply"
+    assert route(hub, allowed, 42, "anything") == "direct"
+    assert route(hub, allowed, 42, None) == "direct"
+    assert route(hub, allowed, 99, "matthew") == "ignore"  # a username alone grants nothing
+    assert route(hub, allowed, None, None) == "ignore"

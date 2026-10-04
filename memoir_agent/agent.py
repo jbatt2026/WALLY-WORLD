@@ -1,6 +1,7 @@
 """Claude agent for Matthew's memoir: reads memories, drafts chapters, consults peers."""
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 
@@ -79,8 +80,10 @@ def build_options(server) -> ClaudeAgentOptions:
 
 
 class MemoirAgent:
-    def __init__(self, options: ClaudeAgentOptions):
-        self._client = ClaudeSDKClient(options)
+    def __init__(self, options: ClaudeAgentOptions, client=None):
+        self._client = client or ClaudeSDKClient(options)
+        # The client has one shared response stream, so a whole turn must run alone.
+        self._lock = asyncio.Lock()
 
     async def __aenter__(self):
         await self._client.connect()
@@ -90,9 +93,10 @@ class MemoirAgent:
         await self._client.disconnect()
 
     async def reply(self, who: str, text: str) -> str:
-        await self._client.query(f"{who}: {text}")
-        parts = []
-        async for msg in self._client.receive_response():
-            if isinstance(msg, AssistantMessage):
-                parts += [b.text for b in msg.content if isinstance(b, TextBlock)]
+        async with self._lock:
+            await self._client.query(f"{who}: {text}")
+            parts = []
+            async for msg in self._client.receive_response():
+                if isinstance(msg, AssistantMessage):
+                    parts += [b.text for b in msg.content if isinstance(b, TextBlock)]
         return "\n".join(parts).strip() or "(no reply)"

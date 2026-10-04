@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from pathlib import Path
 
@@ -13,11 +14,14 @@ from .memory import MemoryStore
 from .peers import PeerHub, load_peers
 
 
-def route(hub: PeerHub, allowed: set[str], username: str | None, text: str) -> str:
-    """Classify an incoming group message: 'peer_reply', 'direct' (authorized human) or 'ignore'."""
+def route(hub: PeerHub, allowed_ids: set[int], user_id: int | None, username: str | None) -> str:
+    """Classify a group message: 'peer_reply', 'direct' (authorized human) or 'ignore'.
+
+    Humans are authorized by immutable Telegram user id, never by changeable username.
+    """
     if hub.is_peer_username(username):
         return "peer_reply"
-    if username and username.lower() in allowed:
+    if user_id is not None and user_id in allowed_ids:
         return "direct"
     return "ignore"
 
@@ -25,7 +29,7 @@ def route(hub: PeerHub, allowed: set[str], username: str | None, text: str) -> s
 def main() -> None:
     token = os.environ["TELEGRAM_BOT_TOKEN"]
     chat_id = int(os.environ["TELEGRAM_CHAT_ID"])
-    allowed = {u.strip().lstrip("@").lower() for u in os.environ["ALLOWED_USERS"].split(",") if u.strip()}
+    allowed = {int(u) for u in os.environ["ALLOWED_USER_IDS"].split(",") if u.strip()}
     root = Path(os.environ.get("MEMOIR_DIR", "memoir"))
 
     async def run() -> None:
@@ -48,19 +52,25 @@ def main() -> None:
                 msg = update.effective_message
                 if not msg or not msg.text or msg.chat_id != chat_id:
                     return
-                user = msg.from_user.username if msg.from_user else None
-                kind = route(hub, allowed, user, msg.text)
+                u = msg.from_user
+                kind = route(hub, allowed, u.id if u else None, u.username if u else None)
                 if kind == "peer_reply":
-                    hub.deliver(user, msg.text)
+                    hub.deliver(u.username, msg.text)
                 elif kind == "direct":
-                    # Run in the background so peer replies can be delivered while the agent waits.
-                    asyncio.create_task(_answer(user, msg.text))
+                    # Background task so peer replies keep flowing; agent.reply serializes turns.
+                    asyncio.create_task(_answer(u.first_name, msg.text))
 
-            async def _answer(user: str, text: str) -> None:
-                await send(await agent.reply(user, text))
+            async def _answer(name: str, text: str) -> None:
+                await send(await agent.reply(name, text))
 
             app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
             async with app:
+                me = await app.bot.get_me()
+                if not me.can_read_all_group_messages:
+                    logging.warning(
+                        "Group Privacy Mode is ON: this bot will miss plain group text. "
+                        "Disable it in BotFather (/setprivacy) and re-add the bot, or make it an admin."
+                    )
                 await app.start()
                 await app.updater.start_polling()
                 await asyncio.Event().wait()
