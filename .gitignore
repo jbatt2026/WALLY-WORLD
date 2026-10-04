@@ -427,3 +427,11 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Memoir content is private: keep memories and manuscript out of git
+memoir/memories/*
+memoir/manuscript/*
+!memoir/memories/.gitkeep
+!memoir/manuscript/.gitkeep
+.env
+peers.json
