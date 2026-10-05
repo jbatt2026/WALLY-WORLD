@@ -435,3 +435,8 @@ memoir/manuscript/*
 !memoir/manuscript/.gitkeep
 .env
 peers.json
+
+# Clawness per-machine state (keep shared memory and rules)
+.clawness/*
+!.clawness/memory.md
+!.clawness/rules/
