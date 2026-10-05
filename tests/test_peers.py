@@ -53,3 +53,12 @@ def test_route_authorization(tmp_path):
     assert route(hub, allowed, 42, None) == "direct"
     assert route(hub, allowed, 99, "matthew") == "ignore"  # a username alone grants nothing
     assert route(hub, allowed, None, None) == "ignore"
+
+
+def test_username_changes_do_not_transfer_human_access(tmp_path):
+    hub, _ = make_hub(tmp_path)
+    allowed = {42}
+    assert route(hub, allowed, 42, "matthew") == "direct"
+    assert route(hub, allowed, 42, "new_name") == "direct"
+    assert route(hub, allowed, 42, None) == "direct"
+    assert route(hub, allowed, 99, "matthew") == "ignore"
