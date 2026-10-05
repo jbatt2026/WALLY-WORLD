@@ -1,0 +1,4 @@
+[
+  {"name": "Researcher", "handle": "my_gpt_research_bot", "platform": "openai", "role": "Checks dates, places and historical context"},
+  {"name": "Editor", "handle": "my_gemini_editor_bot", "platform": "gemini", "role": "Line edits and tone feedback on drafts"}
+]
